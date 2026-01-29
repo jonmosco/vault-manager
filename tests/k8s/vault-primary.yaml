@@ -9,7 +9,7 @@ metadata:
 spec:
   containers:
   - name: vault
-    image: registry.connect.redhat.com/hashicorp/vault:1.19.5-ubi
+    image: registry.connect.redhat.com/hashicorp/vault:1.14.10-ubi
     ports:
     - containerPort: 8200
       name: http

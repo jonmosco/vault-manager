@@ -62,7 +62,7 @@ services:
       start_period: 20s
 
   primary-vault:
-    image: registry.connect.redhat.com/hashicorp/vault:1.19.5-ubi
+    image: registry.connect.redhat.com/hashicorp/vault:1.14.10-ubi
     ports:
       - "8200:8200"
     environment:
@@ -83,7 +83,7 @@ services:
         condition: service_healthy
 
   secondary-vault:
-    image: registry.connect.redhat.com/hashicorp/vault:1.19.5-ubi
+    image: registry.connect.redhat.com/hashicorp/vault:1.14.10-ubi
     ports:
       - "8202:8202"
     environment:
