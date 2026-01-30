@@ -93,5 +93,7 @@ load ../helpers
     [[ "${output}" == *"token_type"*"default"* ]]
 
     export VAULT_ADDR=${PRIMARY_VAULT_URL}
+    # Note: rerun_check will skip for Vault 1.14.x due to API compatibility issue
+    # with role comparison logic. See helpers.bash for details.
     rerun_check
 }
