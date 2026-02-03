@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/app-sre/vault-manager/pkg/utils"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
 	"github.com/hashicorp/vault/api/auth/kubernetes"
@@ -64,11 +65,11 @@ const (
 
 const (
 	// How long before a client login attempt to Vault is timed out.
-	defaultClientLoginTimeout = 5 * time.Second
+	defaultClientLoginTimeout = 60 * time.Second
 
 	// How many times attempt to retry when failing
 	// to retrieve a valid client token.
-	defaultTokenRetryAttempts = 5
+	defaultTokenRetryAttempts = 10
 
 	// How long to sleep in between each retry attempt.
 	defaultTokenRetrySleep = 250 * time.Millisecond
@@ -180,7 +181,7 @@ func configureMaster(instanceCreds map[string]AuthBundle) string {
 	masterVaultCFG := api.DefaultConfig()
 	masterVaultCFG.Address = mustGetenv("VAULT_ADDR")
 
-	client, err := api.NewClient(masterVaultCFG)
+	client, err := newRetryableClient(masterVaultCFG)
 	if err != nil {
 		log.WithError(err).Fatal("[Vault Client] failed to initialize master Vault client")
 	}
@@ -207,8 +208,7 @@ func configureMaster(instanceCreds map[string]AuthBundle) string {
 				log.WithError(err).Fatal("[Vault Client] failed to login to master Vault with AppRole")
 			}
 		case TOKEN_AUTH:
-			clientToken := mustGetenv("VAULT_TOKEN")
-			client.SetToken(clientToken)
+			client.SetToken(mustGetenv("VAULT_TOKEN"))
 		default:
 			log.WithField("authType", authType).Fatal("[Vault Client] unsupported authentication type")
 		}
@@ -279,7 +279,7 @@ func createClient(addr string, masterAddress string, bundle AuthBundle, bwg *uti
 
 	config := api.DefaultConfig()
 	config.Address = addr
-	client, err := api.NewClient(config)
+	client, err := newRetryableClient(config)
 	if err != nil {
 		log.WithError(err).Errorf("[Vault Client] failed to initialize Vault client for `%s`", addr)
 		log.Warnf("SKIPPING ALL RECONCILIATION FOR: %s", addr)
@@ -343,4 +343,15 @@ func getClient(instanceAddr string) *api.Client {
 		log.Fatalf("[Vault Client] client does not exist for address: %s", instanceAddr)
 	}
 	return vaultClients[instanceAddr]
+}
+
+func newRetryableClient(config *api.Config) (*api.Client, error) {
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 10
+	retryClient.RetryWaitMin = 200 * time.Millisecond
+	retryClient.RetryWaitMax = 30 * time.Second
+	retryClient.Logger = log.StandardLogger()
+
+	config.HttpClient = retryClient.StandardClient()
+	return api.NewClient(config)
 }
