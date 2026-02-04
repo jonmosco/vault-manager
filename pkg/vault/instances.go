@@ -11,7 +11,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/app-sre/vault-manager/pkg/utils"
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
 	"github.com/hashicorp/vault/api/auth/kubernetes"
@@ -180,8 +179,9 @@ func initClients(instanceCreds map[string]AuthBundle, threadPoolSize int) {
 func configureMaster(instanceCreds map[string]AuthBundle) string {
 	masterVaultCFG := api.DefaultConfig()
 	masterVaultCFG.Address = mustGetenv("VAULT_ADDR")
+	masterVaultCFG.MaxRetries = 10
 
-	client, err := newRetryableClient(masterVaultCFG)
+	client, err := api.NewClient(masterVaultCFG)
 	if err != nil {
 		log.WithError(err).Fatal("[Vault Client] failed to initialize master Vault client")
 	}
@@ -279,7 +279,8 @@ func createClient(addr string, masterAddress string, bundle AuthBundle, bwg *uti
 
 	config := api.DefaultConfig()
 	config.Address = addr
-	client, err := newRetryableClient(config)
+	config.MaxRetries = 10
+	client, err := api.NewClient(config)
 	if err != nil {
 		log.WithError(err).Errorf("[Vault Client] failed to initialize Vault client for `%s`", addr)
 		log.Warnf("SKIPPING ALL RECONCILIATION FOR: %s", addr)
@@ -343,15 +344,4 @@ func getClient(instanceAddr string) *api.Client {
 		log.Fatalf("[Vault Client] client does not exist for address: %s", instanceAddr)
 	}
 	return vaultClients[instanceAddr]
-}
-
-func newRetryableClient(config *api.Config) (*api.Client, error) {
-	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 10
-	retryClient.RetryWaitMin = 200 * time.Millisecond
-	retryClient.RetryWaitMax = 30 * time.Second
-	retryClient.Logger = log.StandardLogger()
-
-	config.HttpClient = retryClient.StandardClient()
-	return api.NewClient(config)
 }
