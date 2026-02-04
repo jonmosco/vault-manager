@@ -180,6 +180,8 @@ func configureMaster(instanceCreds map[string]AuthBundle) string {
 	masterVaultCFG := api.DefaultConfig()
 	masterVaultCFG.Address = mustGetenv("VAULT_ADDR")
 	masterVaultCFG.MaxRetries = 10
+	masterVaultCFG.MinRetryWait = 1 * time.Second
+	masterVaultCFG.MaxRetryWait = 30 * time.Second
 
 	client, err := api.NewClient(masterVaultCFG)
 	if err != nil {
@@ -280,6 +282,8 @@ func createClient(addr string, masterAddress string, bundle AuthBundle, bwg *uti
 	config := api.DefaultConfig()
 	config.Address = addr
 	config.MaxRetries = 10
+	config.MinRetryWait = 1 * time.Second
+	config.MaxRetryWait = 30 * time.Second
 	client, err := api.NewClient(config)
 	if err != nil {
 		log.WithError(err).Errorf("[Vault Client] failed to initialize Vault client for `%s`", addr)
